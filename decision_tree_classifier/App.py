@@ -79,11 +79,16 @@ with col2:
 
 if st.button("Predict"):
     input_df = build_input_df(temperature, humidity, wind_speed, cloud_cover, pressure)
-    prediction = model.predict(input_df)[0]
-    st.success(f"Prediction: {prediction}")
-    if hasattr(model, "predict_proba"):
-        proba = model.predict_proba(input_df)[0]
-        classes = list(model.classes_)
-        if "rain" in classes:
-            rain_prob = proba[classes.index("rain")]
-            st.write(f"Rain Probability: {rain_prob:.2%}")
+    try:
+        prediction = model.predict(input_df)[0]
+        st.success(f"Prediction: {prediction}")
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(input_df)[0]
+            classes = list(model.classes_)
+            if "rain" in classes:
+                rain_prob = proba[classes.index("rain")]
+                st.write(f"Rain Probability: {rain_prob:.2%}")
+    except Exception as e:
+        st.error(
+            "Prediction failed. This often happens when the deployed Python/scikit-learn version differs from the one used to train the model. Ensure `scikit-learn==1.7.2` is installed or retrain the model in the deployment environment."
+        )

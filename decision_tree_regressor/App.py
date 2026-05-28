@@ -95,5 +95,10 @@ with col3:
 
 if st.button("Predict"):
     input_df = build_input_df(age, sex, bmi, children, smoker, region)
-    prediction = model.predict(input_df)[0]
-    st.success(f"Predicted Charges: {prediction:.2f}")
+    try:
+        prediction = model.predict(input_df)[0]
+        st.success(f"Predicted Charges: {prediction:.2f}")
+    except Exception:
+        st.error(
+            "Prediction failed. This often happens when the deployed Python/scikit-learn version differs from the one used to train the model. Ensure `scikit-learn==1.7.2` is installed or retrain the model in the deployment environment."
+        )
