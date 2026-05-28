@@ -4,17 +4,36 @@ import os
 import joblib
 import pandas as pd
 import streamlit as st
+from sklearn.tree import DecisionTreeRegressor
 
 
-MODEL_PATH = "decision_tree_insurance_model.pkl"
-DATA_PATH = "insurance.csv"
+# Resolve paths relative to this file so deployments find assets
+BASE_DIR = os.path.dirname(__file__)
+MODEL_PATH = os.path.join(BASE_DIR, "decision_tree_insurance_model.pkl")
+DATA_PATH = os.path.join(BASE_DIR, "insurance.csv")
 
 
 @st.cache_resource
 def load_model():
     if not os.path.exists(MODEL_PATH):
         return None
-    return joblib.load(MODEL_PATH)
+    try:
+        return joblib.load(MODEL_PATH)
+    except Exception:
+        return None
+
+
+def train_and_save_model():
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError(f"Training data not found at {DATA_PATH}")
+    df = pd.read_csv(DATA_PATH)
+    X = df[["age", "sex", "bmi", "children", "smoker", "region"]]
+    X = pd.get_dummies(X, drop_first=True)
+    y = df["charges"]
+    reg = DecisionTreeRegressor(random_state=42)
+    reg.fit(X, y)
+    joblib.dump(reg, MODEL_PATH)
+    return reg
 
 
 def load_options():
@@ -46,10 +65,20 @@ st.write("Predict insurance charges from customer details.")
 
 model = load_model()
 if model is None:
-    st.error(
-        "Model file not found. Run decision_tree_insurance_regression.ipynb to train and save decision_tree_insurance_model.pkl."
-    )
-    st.stop()
+    st.warning("Model file not found in the app bundle.")
+    col_train, col_skip = st.columns([1, 1])
+    with col_train:
+        if st.button("Train model now using bundled CSV"):
+            with st.spinner("Training model..."):
+                try:
+                    model = train_and_save_model()
+                    st.success("Model trained and saved.")
+                except Exception as e:
+                    st.error(f"Training failed: {e}")
+                    st.stop()
+    with col_skip:
+        if st.button("Stop (no model)"):
+            st.stop()
 
 sexes, smokers, regions = load_options()
 

@@ -4,16 +4,35 @@ import os
 import joblib
 import pandas as pd
 import streamlit as st
+from sklearn.tree import DecisionTreeClassifier
 
 
-MODEL_PATH = "decision_tree_rain_model.pkl"
+# Resolve paths relative to this file so deployments find assets
+BASE_DIR = os.path.dirname(__file__)
+MODEL_PATH = os.path.join(BASE_DIR, "decision_tree_rain_model.pkl")
+DATA_PATH = os.path.join(BASE_DIR, "weather_forecast_data.csv")
 
 
 @st.cache_resource
 def load_model():
     if not os.path.exists(MODEL_PATH):
         return None
-    return joblib.load(MODEL_PATH)
+    try:
+        return joblib.load(MODEL_PATH)
+    except Exception:
+        return None
+
+
+def train_and_save_model():
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError(f"Training data not found at {DATA_PATH}")
+    df = pd.read_csv(DATA_PATH)
+    X = df[["Temperature", "Humidity", "Wind_Speed", "Cloud_Cover", "Pressure"]]
+    y = df["Rain"]
+    clf = DecisionTreeClassifier(random_state=42)
+    clf.fit(X, y)
+    joblib.dump(clf, MODEL_PATH)
+    return clf
 
 
 def build_input_df(temperature, humidity, wind_speed, cloud_cover, pressure):
@@ -34,10 +53,20 @@ st.write("Predict rain or no rain from weather features.")
 
 model = load_model()
 if model is None:
-    st.error(
-        "Model file not found. Run decision_tree_rain_classifier.ipynb to train and save decision_tree_rain_model.pkl."
-    )
-    st.stop()
+    st.warning("Model file not found in the app bundle.")
+    col_train, col_skip = st.columns([1, 1])
+    with col_train:
+        if st.button("Train model now using bundled CSV"):
+            with st.spinner("Training model..."):
+                try:
+                    model = train_and_save_model()
+                    st.success("Model trained and saved.")
+                except Exception as e:
+                    st.error(f"Training failed: {e}")
+                    st.stop()
+    with col_skip:
+        if st.button("Stop (no model)"):
+            st.stop()
 
 col1, col2 = st.columns(2)
 with col1:
